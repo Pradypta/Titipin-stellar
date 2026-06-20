@@ -16,7 +16,7 @@ fn append_bytes(buf: &mut [u8], pos: &mut usize, s: &[u8]) {
 /// Write the decimal representation of `n` into `buf` at `*pos`.
 fn append_i128(buf: &mut [u8], pos: &mut usize, mut n: i128) {
     if n == 0 {
-        buf[*pos] = b'0';
+        buf[*pos] = b'0'
         *pos += 1;
         return;
     }
