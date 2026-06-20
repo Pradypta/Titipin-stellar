@@ -1,6 +1,17 @@
-# Rust's output directory
-target
+# Rust
+target/
 
-# Local settings
-.soroban
-.stellar
+# Node / Frontend
+node_modules/
+dist/
+
+# Environment variables
+.env
+.env.local
+
+# Stellar local state
+.soroban/
+.stellar/
+
+# OS
+.DS_Store
