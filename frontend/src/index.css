@@ -1,1 +1,63 @@
 @import "tailwindcss";
+
+:root {
+  --accent: #FF5C00;
+  --accent-hover: #E05000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+/* Utility: orange accent button */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  transition: background 0.15s;
+  border: none;
+  cursor: pointer;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Utility: ghost button */
+.btn-ghost {
+  background: transparent;
+  border: 1.5px solid #e5e5e5;
+  color: #0a0a0a;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.btn-ghost:hover { border-color: #0a0a0a; background: #f9f9f9; }
+
+/* Card */
+.card {
+  background: #fff;
+  border: 1.5px solid #f0f0f0;
+  border-radius: 16px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.08); transform: translateY(-2px); }
+
+/* Locked escrow highlight */
+.card-locked {
+  border-color: #FF5C00;
+}
