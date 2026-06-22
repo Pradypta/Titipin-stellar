@@ -2,7 +2,7 @@
 
 use super::*;
 use soroban_sdk::{
-    testutils::Address as _,
+    testutils::{Address as _, Ledger as _},
     token, Address, Env, String,
 };
 use token::Client as TokenClient;
@@ -91,6 +91,48 @@ fn test_refund_path() {
     assert_eq!(
         msg,
         String::from_str(&env, "Funds refunded to titiper")
+    );
+
+    let req = client.get_request(&req_id);
+    assert_eq!(req.status, EscrowStatus::Refunded);
+}
+
+#[test]
+fn test_timeout_refund_path() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin   = Address::generate(&env);
+    let runner  = Address::generate(&env);
+    let titiper = Address::generate(&env);
+    let contract_id = env.register(TitipinEscrow, ());
+
+    let (token, token_admin) = create_token(&env, &admin);
+
+    let amount: i128 = 100_0000000; // 100 XLM
+    token_admin.mint(&titiper, &amount);
+
+    let client = TitipinEscrowClient::new(&env, &contract_id);
+    let req_id = String::from_str(&env, "req-003");
+
+    // Register → Fund
+    client.create_request(&req_id, &runner, &titiper, &token.address, &amount);
+    client.fund_request(&req_id, &titiper);
+
+    assert_eq!(token.balance(&titiper), 0);
+    assert_eq!(token.balance(&contract_id), amount);
+
+    // Simulate 31 days passing (runner ghosted)
+    let thirty_one_days: u64 = 31 * 24 * 60 * 60;
+    env.ledger().set_timestamp(env.ledger().timestamp() + thirty_one_days);
+
+    // Titiper reclaims funds after timeout
+    let msg = client.claim_timeout_refund(&req_id, &titiper);
+    assert_eq!(token.balance(&titiper), amount); // full refund
+    assert_eq!(token.balance(&contract_id), 0);
+    assert_eq!(
+        msg,
+        String::from_str(&env, "Timeout refund claimed by titiper")
     );
 
     let req = client.get_request(&req_id);
