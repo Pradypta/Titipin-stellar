@@ -20,7 +20,7 @@ fn create_token<'a>(
 }
 
 #[test]
-fn test_full_happy_path() {
+fn test_confirm_receipt_releases_funds_to_runner() {
     let env = Env::default();
     env.mock_all_auths();
 
