@@ -2,9 +2,22 @@
 
 > ⚠️ This project is under active development. Features, contracts, and interfaces may change at any time.
 
-**Titipin** is a trustless escrow payment platform for jastip (personal shopper) and pre-order transactions on the Stellar blockchain.
+**Titipin** is a trustless escrow payment platform for jastip transactions on the Stellar blockchain.
 
-In informal jastip commerce, buyers send money directly to the runner with zero protection — if the item is unavailable, a refund depends entirely on the runner's goodwill. Titipin fixes this by locking payment inside a Soroban smart contract. The runner never touches the money until the buyer confirms delivery. If the item cannot be sourced, the contract automatically returns the funds to the buyer.
+---
+
+## What is Jastip?
+
+**Jastip** (short for *jasa titip*, Indonesian for "entrusted shopping service") is a widely-practiced informal commerce model in Indonesia. Here is how it works:
+
+- A **runner** (called a *jastiper*) is traveling abroad or has access to a foreign market — Japan, Korea, Europe, etc.
+- They open a "titip group" announcing where they are going, what they can buy, and until when requests are accepted.
+- **Buyers** (called *titipers*, from *menitip* — "to entrust something to someone") submit requests for specific items they want: a limited-edition sneaker from Tokyo, a Korean skincare product, a bag not available domestically.
+- The runner sources the items, adds their fee on top, and ships everything back.
+
+Jastip is popular because it gives Indonesian buyers access to overseas goods without travelling themselves, and gives runners a way to monetise trips they are already taking. Transactions commonly happen over Instagram DMs or WhatsApp groups — with no payment protection of any kind.
+
+**The problem Titipin solves:** in the current jastip workflow, buyers wire money to the runner upfront and trust them completely. If the item sells out, the runner forgets, or simply disappears, the buyer has no recourse. Titipin fixes this by locking the payment inside a Soroban smart contract on Stellar. The runner never touches the money until the buyer confirms delivery. If the item cannot be sourced, the contract automatically returns the funds to the buyer — no negotiation, no goodwill required.
 
 ---
 

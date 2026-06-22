@@ -1,5 +1,8 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, String};
+use soroban_sdk::{
+    contract, contractimpl, contracttype,
+    token, Address, BytesN, Env, String,
+};
 
 // ── On-chain data types ───────────────────────────────────────────────────────
 
@@ -15,17 +18,22 @@ pub enum EscrowStatus {
 #[contracttype]
 #[derive(Clone)]
 pub struct EscrowRequest {
-    pub runner:  Address,
-    pub titiper: Address,
-    pub token:   Address, // XLM token SAC address
-    pub amount:  i128,    // in stroops (1 XLM = 10_000_000 stroops)
-    pub status:  EscrowStatus,
+    pub runner:     Address,
+    pub titiper:    Address,
+    pub token:      Address, // XLM or USDC SAC address
+    pub amount:     i128,    // in stroops (1 XLM = 10_000_000)
+    pub status:     EscrowStatus,
+    pub funded_at:  u64,     // ledger timestamp when funded (0 if not yet funded)
 }
 
 #[contracttype]
 pub enum DataKey {
     Request(String), // keyed by request_id
+    Admin,           // admin address for upgrades
 }
+
+// Titiper can reclaim funds if runner ghosts for 30 days (~2,592,000 seconds)
+const REFUND_TIMEOUT_SECS: u64 = 30 * 24 * 60 * 60;
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
@@ -34,9 +42,29 @@ pub struct TitipinEscrow;
 
 #[contractimpl]
 impl TitipinEscrow {
+    /// Call once after deploy to register the admin address.
+    /// Admin is the only one who can upgrade the contract WASM.
+    pub fn initialize(env: Env, admin: Address) {
+        if env.storage().instance().has(&DataKey::Admin) {
+            panic!("already initialized");
+        }
+        env.storage().instance().set(&DataKey::Admin, &admin);
+    }
+
+    /// Upgrade the contract WASM in-place (same contract ID, new logic).
+    /// Only the admin set in initialize() can call this.
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .unwrap_or_else(|| panic!("not initialized"));
+
+        admin.require_auth();
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
     /// Runner registers an escrow request after approving the titiper's item.
-    /// Locks in the terms: who pays, who receives, how much.
-    /// Must be called by the runner before the titiper can fund.
     pub fn create_request(
         env: Env,
         request_id: String,
@@ -48,7 +76,6 @@ impl TitipinEscrow {
         runner.require_auth();
 
         let key = DataKey::Request(request_id);
-
         if env.storage().persistent().has(&key) {
             panic!("request already registered on-chain");
         }
@@ -60,14 +87,14 @@ impl TitipinEscrow {
                 titiper,
                 token,
                 amount,
-                status: EscrowStatus::Registered,
+                status:    EscrowStatus::Registered,
+                funded_at: 0,
             },
         );
-        env.storage().persistent().extend_ttl(&key, 518_400, 518_400); // ~30 days
+        env.storage().persistent().extend_ttl(&key, 518_400, 518_400);
     }
 
-    /// Titiper locks XLM into this contract.
-    /// Requires Freighter signature from the titiper.
+    /// Titiper locks funds into this contract.
     /// Token is transferred: titiper → contract.
     pub fn fund_request(env: Env, request_id: String, titiper: Address) {
         titiper.require_auth();
@@ -86,18 +113,17 @@ impl TitipinEscrow {
             panic!("request is not in Registered state");
         }
 
-        // Pull funds from titiper into this contract
         token::Client::new(&env, &req.token)
             .transfer(&titiper, &env.current_contract_address(), &req.amount);
 
-        req.status = EscrowStatus::Funded;
+        req.status    = EscrowStatus::Funded;
+        req.funded_at = env.ledger().timestamp();
+
         env.storage().persistent().set(&key, &req);
         env.storage().persistent().extend_ttl(&key, 518_400, 518_400);
     }
 
-    /// Titiper confirms they received the item.
-    /// Automatically releases funds: contract → runner.
-    /// Only the titiper can call this.
+    /// Titiper confirms receipt — releases funds to runner.
     pub fn confirm_receipt(env: Env, request_id: String, titiper: Address) -> String {
         titiper.require_auth();
 
@@ -115,7 +141,6 @@ impl TitipinEscrow {
             panic!("request is not in Funded state");
         }
 
-        // Release funds to runner
         token::Client::new(&env, &req.token)
             .transfer(&env.current_contract_address(), &req.runner, &req.amount);
 
@@ -125,9 +150,7 @@ impl TitipinEscrow {
         String::from_str(&env, "Payment released to runner")
     }
 
-    /// Runner marks the item as unavailable (sold out, trip canceled, etc).
-    /// Automatically refunds funds: contract → titiper.
-    /// Only the runner can call this.
+    /// Runner marks item unavailable — refunds titiper.
     pub fn refund_request(env: Env, request_id: String, runner: Address) -> String {
         runner.require_auth();
 
@@ -141,14 +164,11 @@ impl TitipinEscrow {
         if req.runner != runner {
             panic!("unauthorized: caller is not the runner for this request");
         }
-
-        // Can refund from Registered (before payment) or Funded (after payment)
         match req.status {
             EscrowStatus::Registered | EscrowStatus::Funded => {}
             _ => panic!("request is already completed or refunded"),
         }
 
-        // Only transfer back if titiper had actually locked funds
         if req.status == EscrowStatus::Funded {
             token::Client::new(&env, &req.token)
                 .transfer(&env.current_contract_address(), &req.titiper, &req.amount);
@@ -160,7 +180,40 @@ impl TitipinEscrow {
         String::from_str(&env, "Funds refunded to titiper")
     }
 
-    /// Read the current on-chain state of a request.
+    /// Escape hatch: titiper reclaims funds if runner ghosts for 30 days.
+    /// Protects titipers from runners who disappear after escrow is funded.
+    pub fn claim_timeout_refund(env: Env, request_id: String, titiper: Address) -> String {
+        titiper.require_auth();
+
+        let key = DataKey::Request(request_id);
+        let mut req: EscrowRequest = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic!("request not found"));
+
+        if req.titiper != titiper {
+            panic!("unauthorized: caller is not the titiper for this request");
+        }
+        if req.status != EscrowStatus::Funded {
+            panic!("funds are not currently in escrow");
+        }
+
+        let now = env.ledger().timestamp();
+        if now < req.funded_at + REFUND_TIMEOUT_SECS {
+            panic!("timeout period has not elapsed yet (30 days required)");
+        }
+
+        token::Client::new(&env, &req.token)
+            .transfer(&env.current_contract_address(), &req.titiper, &req.amount);
+
+        req.status = EscrowStatus::Refunded;
+        env.storage().persistent().set(&key, &req);
+
+        String::from_str(&env, "Timeout refund claimed by titiper")
+    }
+
+    /// Read-only: current on-chain state of a request.
     pub fn get_request(env: Env, request_id: String) -> EscrowRequest {
         let key = DataKey::Request(request_id);
         env.storage()
