@@ -74,9 +74,11 @@ Neither party can move the funds unilaterally. All rules are enforced by the Sor
 ## Smart Contract — `titipin-escrow`
 
 **Deployed on Stellar Testnet:**
-```
-CB4YBYZMZITNAGE2U3LCA3WPUHGXJGWVZ7Z2PKB3S3ZUBPUVXZQALEKB
-```
+
+| Contract | ID |
+|---|---|
+| `titipin-escrow` | `CAB5LP5SKD22NA6SECD6EV3AJ62BWYV5MNRRELCHVKF5DX6IUQADSXBB` |
+| `runner-reputation` | `CBQ5YNUFSK5WDJMS6XGX22RWW54IJ3CQFXBWSDQBN4DTPHCFTLXPBLPG` |
 
 The contract is written in Rust using the Soroban SDK and stores one `EscrowRequest` record per titip request on the Stellar ledger.
 

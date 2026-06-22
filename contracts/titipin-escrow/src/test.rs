@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use super::*;
+use runner_reputation::{RunnerReputation, RunnerReputationClient};
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
     token, Address, Env, String,
@@ -137,4 +138,43 @@ fn test_timeout_refund_path() {
 
     let req = client.get_request(&req_id);
     assert_eq!(req.status, EscrowStatus::Refunded);
+}
+
+#[test]
+fn test_reputation_updated_on_escrow_completion() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin   = Address::generate(&env);
+    let runner  = Address::generate(&env);
+    let titiper = Address::generate(&env);
+
+    // Deploy both contracts
+    let escrow_id     = env.register(TitipinEscrow, ());
+    let reputation_id = env.register(RunnerReputation, ());
+
+    let (token, token_admin) = create_token(&env, &admin);
+
+    let amount: i128 = 100_0000000;
+    token_admin.mint(&titiper, &amount);
+
+    let escrow     = TitipinEscrowClient::new(&env, &escrow_id);
+    let reputation = RunnerReputationClient::new(&env, &reputation_id);
+    let req_id     = String::from_str(&env, "req-004");
+
+    // Wire escrow to reputation, then run the full flow
+    escrow.initialize(&admin);
+    escrow.set_reputation_contract(&reputation_id);
+
+    assert_eq!(reputation.get_stats(&runner).completed, 0);
+    assert_eq!(reputation.get_stats(&runner).refunded, 0);
+
+    escrow.create_request(&req_id, &runner, &titiper, &token.address, &amount);
+    escrow.fund_request(&req_id, &titiper);
+    escrow.confirm_receipt(&req_id, &titiper);
+
+    // Escrow called reputation contract — completed count must be 1
+    let stats = reputation.get_stats(&runner);
+    assert_eq!(stats.completed, 1);
+    assert_eq!(stats.refunded, 0);
 }

@@ -1,7 +1,7 @@
 /**
  * Titipin escrow service — wired to the deployed Soroban contract.
  *
- * Contract: CB4YBYZMZITNAGE2U3LCA3WPUHGXJGWVZ7Z2PKB3S3ZUBPUVXZQALEKB (testnet)
+ * Contract: CAB5LP5SKD22NA6SECD6EV3AJ62BWYV5MNRRELCHVKF5DX6IUQADSXBB (testnet)
  *
  * Flow:
  *  1. Runner approves  → createEscrowRequest()   registers terms on-chain
@@ -19,7 +19,7 @@ export const NATIVE_TOKEN = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HH
 
 const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015'
 const RPC_URL            = 'https://soroban-testnet.stellar.org'
-const CONTRACT_ID        = 'CB4YBYZMZITNAGE2U3LCA3WPUHGXJGWVZ7Z2PKB3S3ZUBPUVXZQALEKB'
+const CONTRACT_ID        = 'CAB5LP5SKD22NA6SECD6EV3AJ62BWYV5MNRRELCHVKF5DX6IUQADSXBB'
 const STROOPS_PER_XLM    = 10_000_000
 
 function buildClient(walletAddress: string): Client {

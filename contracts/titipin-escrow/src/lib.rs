@@ -1,8 +1,15 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype,
+    contract, contractclient, contractimpl, contracttype,
     token, Address, BytesN, Env, String,
 };
+
+// Interface for the runner-reputation contract — used for cross-contract calls.
+#[contractclient(name = "ReputationClient")]
+pub trait ReputationInterface {
+    fn record_completed(env: Env, runner: Address);
+    fn record_refunded(env: Env, runner: Address);
+}
 
 // ── On-chain data types ───────────────────────────────────────────────────────
 
@@ -28,8 +35,9 @@ pub struct EscrowRequest {
 
 #[contracttype]
 pub enum DataKey {
-    Request(String), // keyed by request_id
-    Admin,           // admin address for upgrades
+    Request(String),    // keyed by request_id
+    Admin,              // admin address for upgrades
+    ReputationContract, // optional cross-contract reputation tracker
 }
 
 // Titiper can reclaim funds if runner ghosts for 30 days (~2,592,000 seconds)
@@ -62,6 +70,19 @@ impl TitipinEscrow {
 
         admin.require_auth();
         env.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    /// Admin registers the reputation contract address for cross-contract calls.
+    pub fn set_reputation_contract(env: Env, reputation_id: Address) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .unwrap_or_else(|| panic!("not initialized"));
+        admin.require_auth();
+        env.storage()
+            .instance()
+            .set(&DataKey::ReputationContract, &reputation_id);
     }
 
     /// Runner registers an escrow request after approving the titiper's item.
@@ -147,6 +168,15 @@ impl TitipinEscrow {
         req.status = EscrowStatus::Completed;
         env.storage().persistent().set(&key, &req);
 
+        // Cross-contract call: update runner's reputation score
+        if let Some(rep_id) = env
+            .storage()
+            .instance()
+            .get::<DataKey, Address>(&DataKey::ReputationContract)
+        {
+            ReputationClient::new(&env, &rep_id).record_completed(&req.runner);
+        }
+
         String::from_str(&env, "Payment released to runner")
     }
 
@@ -176,6 +206,15 @@ impl TitipinEscrow {
 
         req.status = EscrowStatus::Refunded;
         env.storage().persistent().set(&key, &req);
+
+        // Cross-contract call: record refund in runner's reputation
+        if let Some(rep_id) = env
+            .storage()
+            .instance()
+            .get::<DataKey, Address>(&DataKey::ReputationContract)
+        {
+            ReputationClient::new(&env, &rep_id).record_refunded(&req.runner);
+        }
 
         String::from_str(&env, "Funds refunded to titiper")
     }
