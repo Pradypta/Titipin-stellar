@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { updateRequestStatus, markRequestShipped } from '../../lib/storage'
-import { refundTitiperOnChain, markShippedOnChain } from '../../contract/escrowService'
+import { refundTitiperOnChain } from '../../contract/escrowService'
 import { runnerActions } from '../../lib/roles'
 import type { TitipRequest } from '../../types/request'
 
@@ -76,16 +76,13 @@ export function RunnerActionBar({ request, walletAddress, onComplete }: Props) {
           <button
             disabled={busy || tracking.trim() === ''}
             onClick={() =>
-              handle('shipped', async () => {
-                const trackingNumber = tracking.trim()
-                // Record the tracking number on-chain (Funded → Shipped), then mirror to DB
-                await markShippedOnChain(walletAddress, request.requestId, trackingNumber)
-                await markRequestShipped(request.requestId, trackingNumber)
-              })
+              handle('shipped', () =>
+                markRequestShipped(request.requestId, tracking.trim()),
+              )
             }
             className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm text-white hover:bg-orange-600 disabled:opacity-50"
           >
-            {loadingAction === 'shipped' ? 'Recording on-chain…' : '📦 Mark Shipped'}
+            {loadingAction === 'shipped' ? 'Saving…' : '📦 Mark Shipped'}
           </button>
         </div>
       )}

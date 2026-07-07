@@ -17,7 +17,7 @@ export function SubmitTitipRequestForm({ groupId, runnerAddress, onSubmitted }: 
 
   const [form, setForm] = useState({
     itemName: '', itemLink: '', variant: '',
-    quantity: '1', notes: '', estimatedPrice: '',
+    quantity: '1', notes: '',
   })
 
   const f = (key: keyof typeof form) => ({
@@ -43,7 +43,7 @@ export function SubmitTitipRequestForm({ groupId, runnerAddress, onSubmitted }: 
         variant:        form.variant,
         quantity:       parseInt(form.quantity, 10),
         notes:          form.notes,
-        estimatedPrice: form.estimatedPrice ? parseFloat(form.estimatedPrice) : null,
+        estimatedPrice: null,   // runner sets the price when they quote
         runnerQuote:    null,
         requestStatus:  'submitted',
         createdAt:      new Date().toISOString(),
@@ -90,11 +90,6 @@ export function SubmitTitipRequestForm({ groupId, runnerAddress, onSubmitted }: 
           <label className={label}>Quantity *</label>
           <input className={input} type="number" min="1" required {...f('quantity')} />
         </div>
-      </div>
-      <div>
-        <label className={label}>Your Price Estimate (XLM, optional)</label>
-        <input className={input} type="number" min="0" step="0.01"
-          placeholder="Helps the runner plan — not binding" {...f('estimatedPrice')} />
       </div>
       <div>
         <label className={label}>Notes for Runner</label>
