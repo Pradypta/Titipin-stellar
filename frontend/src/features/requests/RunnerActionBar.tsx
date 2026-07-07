@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { updateRequestStatus } from '../../lib/storage'
 import { refundTitiperOnChain } from '../../contract/escrowService'
 import { runnerActions } from '../../lib/roles'
-import { ApproveRequestPanel } from './ApproveRequestPanel'
 import type { TitipRequest } from '../../types/request'
 
 interface Props {

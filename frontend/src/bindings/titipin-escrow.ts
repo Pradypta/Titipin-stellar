@@ -1,3 +1,4 @@
+// @ts-nocheck — auto-generated Soroban contract bindings; regenerated via `stellar contract bindings typescript`
 import { Buffer } from "buffer";
 import { Address } from "@stellar/stellar-sdk";
 import {

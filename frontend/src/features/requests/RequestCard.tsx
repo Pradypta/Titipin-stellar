@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { StatusBadge } from '../../components/StatusBadge'
 import { RequestStatusTimeline } from '../../components/RequestStatusTimeline'
 import { autoCompleteIfExpired } from '../../lib/storage'
 import { RunnerActionBar } from './RunnerActionBar'
