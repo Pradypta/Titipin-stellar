@@ -11,13 +11,26 @@
 **Jastip** (short for *jasa titip*, Indonesian for "entrusted shopping service") is a widely-practiced informal commerce model in Indonesia. Here is how it works:
 
 - A **runner** (called a *jastiper*) is traveling abroad or has access to a foreign market — Japan, Korea, Europe, etc.
-- They open a "titip group" announcing where they are going, what they can buy, and until when requests are accepted.
+- They announce where they are going and what they can buy, and take orders from people back home.
 - **Buyers** (called *titipers*, from *menitip* — "to entrust something to someone") submit requests for specific items they want: a limited-edition sneaker from Tokyo, a Korean skincare product, a bag not available domestically.
 - The runner sources the items, adds their fee on top, and ships everything back.
 
 Jastip is popular because it gives Indonesian buyers access to overseas goods without travelling themselves, and gives runners a way to monetise trips they are already taking. Transactions commonly happen over Instagram DMs or WhatsApp groups — with no payment protection of any kind.
 
 **The problem Titipin solves:** in the current jastip workflow, buyers wire money to the runner upfront and trust them completely. If the item sells out, the runner forgets, or simply disappears, the buyer has no recourse. Titipin fixes this by locking the payment inside a Soroban smart contract on Stellar. The runner never touches the money until the buyer confirms delivery. If the item cannot be sourced, the contract automatically returns the funds to the buyer — no negotiation, no goodwill required.
+
+---
+
+## Recent Updates
+
+Titipin has moved from timed *"titip groups"* to a persistent **runner marketplace** with lightweight accounts and off-platform chat. On-chain stays minimal — only the money moves through the contract.
+
+- **Accounts & onboarding** — Every wallet gets a lightweight account (just a username) on first connect. No profile forms required just to browse.
+- **Runner profiles** — *Become a Runner* upgrades an account into a full profile: username, current location, background, WhatsApp number, and a **Ready / Not Ready** toggle. One profile per wallet; titipers browse only runners who are *Ready*.
+- **WhatsApp click-to-chat** — Each runner lists a WhatsApp number. Titipers tap **Chat** to negotiate price, shipping, and item details directly — no bot, no backend, just a `wa.me` deep link.
+- **Landing page** — Visitors who haven't connected a wallet see a marketing landing page (what Titipin is + how it works) instead of the runner list.
+- **Runner-set pricing** — Removed the titiper's price-estimate field; the runner sets the price when quoting.
+- **Off-chain shipping status** — *Mark Shipped* + tracking number are saved to Supabase (instant, no gas). Only fund / confirm / refund stay on-chain, since only the money needs trust enforcement.
 
 ---
 
@@ -36,7 +49,10 @@ Jastip is popular because it gives Indonesian buyers access to overseas goods wi
 ## How It Works
 
 ```
-Titiper (buyer) submits a request inside a Titip Group
+Titiper browses Ready runners → chats on WhatsApp to agree on the item
+              │
+              ▼
+Titiper submits a request to that runner
               │
               ▼
 Runner reviews and sends an all-in quote
@@ -61,13 +77,15 @@ Neither party can move the funds unilaterally. All rules are enforced by the Sor
 
 ## Features
 
-- **Titip Groups** — Runners open a jastip session with sourcing location, dates, and open period. Titipers browse and submit item requests inside the group.
+- **Runner marketplace & profiles** — Runners publish a profile (username, location, background, WhatsApp, Ready toggle). Titipers browse *Ready* runners and submit item requests.
+- **Lightweight accounts** — Every wallet gets an account (username) on first connect; *Become a Runner* upgrades it to a full profile. One account per wallet.
+- **WhatsApp chat** — Titipers negotiate price, shipping, and item details directly with the runner via a `wa.me` click-to-chat link — no bot or backend.
 - **Escrow-backed payments** — Funds are locked in a Soroban smart contract on Stellar testnet. Nobody can access them until the outcome is settled.
 - **All-in runner quote** — Runners set a single total price covering the item, local taxes (e.g. Japan consumption tax), Indonesian import duties, shipping, and their own margin. No hidden fees.
-- **Live status tracker** — A 6-step visual tracker (Submitted → Approved → Funded → Purchased → Shipped → Delivered) updates in real-time via Supabase Realtime for both runners and titipers without page refresh.
-- **Auto-delivery** — If the titiper does not confirm receipt within 3 days of the item being marked shipped, the order is automatically marked as delivered and funds are released.
-- **Freighter wallet** — All on-chain transactions (escrow funding, release, refund) are signed by the user's Freighter wallet. No private keys are stored by the app.
-- **Cross-device visibility** — Group and request data is stored in Supabase (PostgreSQL), making it visible across any browser, device, or Chrome profile.
+- **Live status tracker** — A visual tracker (Submitted → Approved → Funded → Purchased → Shipped → Delivered) updates in real-time via Supabase Realtime for both parties without page refresh.
+- **Off-chain shipping** — Purchased/Shipped status and the tracking number are stored in Supabase (no gas). Only fund / confirm / refund touch the chain.
+- **Freighter wallet** — On-chain transactions (escrow funding, release, refund) are signed by the user's Freighter wallet. No private keys are stored by the app.
+- **Cross-device visibility** — Account and request data is stored in Supabase (PostgreSQL), visible across any browser, device, or Chrome profile.
 
 ---
 
@@ -174,35 +192,38 @@ cd frontend && npm install && cd ..
 2. Open the **SQL Editor** and run:
 
 ```sql
+-- One row per wallet — an account, upgraded to a runner profile when is_runner = true.
+-- (Table name is historical; `title` holds the username, `source_location` the location,
+--  and `description` the runner background.)
 create table titipin_groups (
-  group_id                 text primary key,
-  runner_address           text not null,
-  title                    text not null,
-  source_location          text not null,
-  description              text default '',
-  open_until               text not null,
-  estimated_purchase_date  text not null,
-  estimated_delivery_date  text not null,
-  group_status             text not null default 'open',
-  fee_percentage           integer not null default 10,
-  created_at               text not null
+  group_id          text primary key,   -- = wallet address (one row per wallet)
+  runner_address    text not null,
+  title             text not null,       -- username
+  source_location   text default '',     -- current location
+  description       text default '',     -- background / about the runner
+  whatsapp_number   text default '',     -- international format, for click-to-chat
+  is_runner         boolean not null default false,
+  group_status      text not null default 'not_ready',  -- 'ready' | 'not_ready'
+  fee_percentage    integer not null default 10,
+  created_at        text not null
 );
 
 create table titipin_requests (
-  request_id               text primary key,
-  group_id                 text not null references titipin_groups(group_id),
-  titiper_address          text not null,
-  runner_address           text not null,
-  item_name                text not null,
-  item_link                text default '',
-  variant                  text default '',
-  quantity                 integer not null default 1,
-  notes                    text default '',
-  estimated_price          numeric,
-  runner_quote             numeric,
-  request_status           text not null default 'submitted',
-  status_updated_at        text,
-  created_at               text not null
+  request_id        text primary key,
+  group_id          text not null references titipin_groups(group_id),
+  titiper_address   text not null,
+  runner_address    text not null,
+  item_name         text not null,
+  item_link         text default '',
+  variant           text default '',
+  quantity          integer not null default 1,
+  notes             text default '',
+  estimated_price   numeric,             -- unused (runner sets the price when quoting)
+  runner_quote      numeric,
+  request_status    text not null default 'submitted',
+  status_updated_at text,
+  tracking_number   text,                -- courier tracking, saved off-chain on Mark Shipped
+  created_at        text not null
 );
 
 -- Public read/write (wallet address = identity for MVP)
@@ -258,23 +279,23 @@ Open [http://localhost:5173](http://localhost:5173).
 
 ### As a Runner (jastiper)
 
-1. Connect Freighter wallet
-2. Go to **Dashboard → New Group**
-3. Fill in sourcing location, dates, and description
-4. Share the group link with your customers
-5. When requests come in, review each one and enter your all-in quote (item + taxes + duties + shipping + your margin)
+1. Connect Freighter wallet and set a username when prompted
+2. Tap **Become a Runner** and fill your profile — location, WhatsApp number, background
+3. Set your status to **Ready** so titipers can find you under **Runners**
+4. Titipers chat with you on WhatsApp to agree on the item, price, and shipping
+5. When a request comes in, review it and enter your all-in quote (item + taxes + duties + shipping + your margin)
 6. Approving a request signs an on-chain transaction via Freighter — this registers the escrow terms
-7. Update request status as you progress: Purchased → Shipped
-8. Once the titiper confirms delivery, funds are automatically released to your wallet
+7. Update status as you progress: **Purchased → Shipped** (enter the tracking number — saved off-chain)
+8. Once the titiper confirms delivery, escrow releases the funds to your wallet
 
 ### As a Titiper (buyer)
 
-1. Connect Freighter wallet
-2. Browse open groups on the home page
-3. Open a group and submit your request (item name, link, variant, quantity)
+1. Connect Freighter wallet and set a username when prompted
+2. Browse **Ready runners** on the home page; tap **Chat** to negotiate on WhatsApp
+3. Open a runner and submit your request (item name, link, variant, quantity)
 4. Wait for the runner to approve and send a quote
 5. Review the all-in quote — it covers everything. Click **Lock XLM** to fund escrow via Freighter
-6. Track your order status in **My Orders** — it updates live
+6. Track your order in **My Orders** — it updates live, with the tracking number once shipped
 7. When your item arrives, click **I received my item** to release funds to the runner
 
 ---
