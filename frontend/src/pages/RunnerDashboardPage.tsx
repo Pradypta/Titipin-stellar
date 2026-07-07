@@ -29,11 +29,13 @@ function GroupSummaryCard({
     <Link to={`/groups/${group.groupId}`} className="card block p-5 hover:no-underline">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-black text-neutral-900">{group.title}</p>
-          <p className="text-xs text-[#FF5C00]">{group.sourceLocation}</p>
+          <p className="truncate font-black text-neutral-900">{group.username}</p>
+          <p className="text-xs text-[#FF5C00]">📍 {group.location}</p>
         </div>
-        <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
-          {group.groupStatus}
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+          group.groupStatus === 'ready' ? 'bg-green-50 text-green-700' : 'bg-neutral-100 text-neutral-500'
+        }`}>
+          {group.groupStatus === 'ready' ? 'Ready' : 'Not Ready'}
         </span>
       </div>
       <div className="flex items-end justify-between">
@@ -74,7 +76,7 @@ function GroupRequestsRow({
           to={`/groups/${group.groupId}`}
           className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-[#FF5C00]"
         >
-          {group.title} · {group.sourceLocation}
+          {group.username} · {group.location}
         </Link>
         <div className="h-px flex-1 bg-neutral-100" />
       </div>
@@ -137,7 +139,7 @@ export function RunnerDashboardPage() {
             to="/runner/groups/new"
             className="rounded-full bg-[#FF5C00] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#E05000]"
           >
-            + New Group
+            {groups.length > 0 ? 'Edit Profile' : '+ Create Profile'}
           </Link>
         </div>
 
@@ -145,9 +147,9 @@ export function RunnerDashboardPage() {
 
         {!groupsLoading && groups.length === 0 && (
           <div className="rounded-2xl border-2 border-dashed border-neutral-200 py-24 text-center">
-            <p className="text-2xl font-black text-neutral-200">No groups yet</p>
+            <p className="text-2xl font-black text-neutral-200">No profile yet</p>
             <Link to="/runner/groups/new" className="mt-4 inline-block text-sm font-semibold text-[#FF5C00] underline underline-offset-4">
-              Create your first group
+              Create your runner profile
             </Link>
           </div>
         )}
@@ -157,7 +159,7 @@ export function RunnerDashboardPage() {
             {/* ── Section 1: Your Groups ── */}
             <section className="mb-12">
               <h2 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                Your Groups ({groups.length})
+                Your Profile
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {groups.map((g) => (

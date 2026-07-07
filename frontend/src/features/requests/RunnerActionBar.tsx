@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { updateRequestStatus } from '../../lib/storage'
-import { refundTitiperOnChain } from '../../contract/escrowService'
+import { updateRequestStatus, markRequestShipped } from '../../lib/storage'
+import { refundTitiperOnChain, markShippedOnChain } from '../../contract/escrowService'
 import { runnerActions } from '../../lib/roles'
 import type { TitipRequest } from '../../types/request'
 
@@ -16,6 +16,7 @@ export function RunnerActionBar({ request, walletAddress, onComplete }: Props) {
   // Track WHICH action is loading so only that button shows the spinner
   const [loadingAction, setLoadingAction] = useState<ActionKey | null>(null)
   const [error, setError] = useState('')
+  const [tracking, setTracking] = useState('')
   const can = runnerActions(request.requestStatus)
 
   async function handle(key: ActionKey, action: () => Promise<void>) {
@@ -61,19 +62,39 @@ export function RunnerActionBar({ request, walletAddress, onComplete }: Props) {
       )}
 
       {can.canMarkShipped && (
-        <button
-          disabled={busy}
-          onClick={() => handle('shipped', () => updateRequestStatus(request.requestId, 'shipped'))}
-          className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm text-white hover:bg-orange-600 disabled:opacity-50"
-        >
-          {loadingAction === 'shipped' ? 'Saving…' : '📦 Mark Shipped'}
-        </button>
+        <div className="flex w-full flex-col gap-2 rounded-xl border border-orange-200 bg-orange-50 p-3">
+          <label className="text-xs font-medium text-orange-800">
+            EMS / Japan Post tracking number
+          </label>
+          <input
+            value={tracking}
+            onChange={(e) => setTracking(e.target.value)}
+            placeholder="e.g. EE123456789JP"
+            disabled={busy}
+            className="rounded-lg border border-orange-200 px-3 py-1.5 text-sm focus:border-orange-400 focus:outline-none disabled:opacity-50"
+          />
+          <button
+            disabled={busy || tracking.trim() === ''}
+            onClick={() =>
+              handle('shipped', async () => {
+                const trackingNumber = tracking.trim()
+                // Record the tracking number on-chain (Funded → Shipped), then mirror to DB
+                await markShippedOnChain(walletAddress, request.requestId, trackingNumber)
+                await markRequestShipped(request.requestId, trackingNumber)
+              })
+            }
+            className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm text-white hover:bg-orange-600 disabled:opacity-50"
+          >
+            {loadingAction === 'shipped' ? 'Recording on-chain…' : '📦 Mark Shipped'}
+          </button>
+        </div>
       )}
 
       {request.requestStatus === 'shipped' && (
-        <p className="w-full rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
-          Waiting for titiper to confirm delivery. Funds auto-release after 3 days.
-        </p>
+        <div className="w-full rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+          Shipped{request.trackingNumber ? ` · tracking ${request.trackingNumber}` : ''}. Waiting for
+          the titiper to confirm delivery.
+        </div>
       )}
 
       {error && <p className="w-full text-xs text-red-600">{error}</p>}

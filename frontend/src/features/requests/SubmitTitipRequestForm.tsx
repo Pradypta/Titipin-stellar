@@ -48,6 +48,7 @@ export function SubmitTitipRequestForm({ groupId, runnerAddress, onSubmitted }: 
         requestStatus:  'submitted',
         createdAt:      new Date().toISOString(),
         statusUpdatedAt: null,
+        trackingNumber:  null,
       }
       await saveRequest(request)
       setSubmitted(true)

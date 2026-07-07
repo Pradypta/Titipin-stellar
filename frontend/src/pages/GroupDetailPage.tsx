@@ -4,6 +4,7 @@ import { useWallet } from '../wallet/WalletContext'
 import { useRequestsByGroup } from '../hooks/useTitipRequests'
 import { getGroupById } from '../lib/storage'
 import { isGroupRunner } from '../lib/roles'
+import { whatsappUrl } from '../lib/whatsapp'
 import { Navbar } from '../components/Navbar'
 import { SubmitTitipRequestForm } from '../features/requests/SubmitTitipRequestForm'
 import { RequestCard } from '../features/requests/RequestCard'
@@ -30,6 +31,11 @@ export function GroupDetailPage() {
   }
 
   const runner = isGroupRunner(group, publicKey)
+  const waUrl = whatsappUrl(
+    group.whatsappNumber,
+    `Hi ${group.username}! I found you on Titipin and I'd like to titip an item.`,
+  )
+  const ready = group.groupStatus === 'ready'
   const visibleRequests = runner
     ? requests
     : requests.filter((r) => r.titiperAddress === publicKey)
@@ -48,31 +54,33 @@ export function GroupDetailPage() {
         <div className="mb-8 rounded-2xl border border-neutral-100 bg-white p-7 shadow-sm">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <p className="mb-1 text-sm font-semibold text-[#FF5C00]">{group.sourceLocation}</p>
-              <h1 className="text-3xl font-black tracking-tight text-neutral-900">{group.title}</h1>
-              {group.description && (
-                <p className="mt-2 text-neutral-500">{group.description}</p>
+              <p className="mb-1 text-sm font-semibold text-[#FF5C00]">📍 {group.location}</p>
+              <h1 className="text-3xl font-black tracking-tight text-neutral-900">{group.username}</h1>
+              {group.background && (
+                <p className="mt-2 text-neutral-500">{group.background}</p>
               )}
             </div>
-            <span className="shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-neutral-500">
-              {group.groupStatus}
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
+              ready ? 'bg-green-50 text-green-700' : 'bg-neutral-100 text-neutral-500'
+            }`}>
+              {ready ? '🟢 Ready' : 'Not Ready'}
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              ['Open Until', group.openUntil],
-              ['Purchase', group.estimatedPurchaseDate],
-              ['Delivery', group.estimatedDeliveryDate],
-            ].map(([label, date]) => (
-              <div key={label} className="rounded-xl bg-neutral-50 px-4 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{label}</p>
-                <p className="mt-0.5 text-sm font-bold text-neutral-800">
-                  {new Date(date).toLocaleDateString()}
-                </p>
-              </div>
-            ))}
-          </div>
+          {/* Chat with runner on WhatsApp */}
+          {!runner && waUrl && (
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.893c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652a12.062 12.062 0 005.71 1.447h.006c6.585 0 11.946-5.335 11.949-11.896 0-3.176-1.24-6.165-3.487-8.411"/>
+              </svg>
+              Chat with runner on WhatsApp
+            </a>
+          )}
 
           {/* Locked funds banner */}
           {totalLocked > 0 && (
@@ -104,7 +112,7 @@ export function GroupDetailPage() {
         )}
 
         {/* Submit request */}
-        <RoleGate condition={!runner && isConnected && group.groupStatus === 'open'}>
+        <RoleGate condition={!runner && isConnected && group.groupStatus === 'ready'}>
           <div className="mb-8">
             {!showForm ? (
               <button

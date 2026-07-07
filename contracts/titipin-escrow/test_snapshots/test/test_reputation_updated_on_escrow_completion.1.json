@@ -350,14 +350,6 @@
                   },
                   {
                     "key": {
-                      "symbol": "delivered_at"
-                    },
-                    "val": {
-                      "u64": "0"
-                    }
-                  },
-                  {
-                    "key": {
                       "symbol": "funded_at"
                     },
                     "val": {
@@ -370,14 +362,6 @@
                     },
                     "val": {
                       "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "shipped_at"
-                    },
-                    "val": {
-                      "u64": "0"
                     }
                   },
                   {
@@ -406,14 +390,6 @@
                     },
                     "val": {
                       "address": "CACMVW2KK4H5FZDFF2AUCAKQTEJMZZWJUIZF23XMRVYQBSXYLHZ6BKWN"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "tracking"
-                    },
-                    "val": {
-                      "string": ""
                     }
                   }
                 ]

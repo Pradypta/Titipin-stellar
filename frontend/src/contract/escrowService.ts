@@ -118,3 +118,61 @@ export async function refundTitiperOnChain(
 
   await tx.signAndSend()
 }
+
+/**
+ * Runner marks the item purchased + shipped and records the EMS tracking
+ * number on-chain. Moves the escrow Funded → Shipped.
+ * Freighter opens for the runner to approve.
+ */
+export async function markShippedOnChain(
+  runnerAddress: string,
+  requestId:     string,
+  trackingNumber: string,
+): Promise<void> {
+  const client = buildClient(runnerAddress)
+
+  const tx = await client.mark_shipped({
+    request_id: requestId,
+    runner:     runnerAddress,
+    tracking:   trackingNumber,
+  })
+
+  await tx.signAndSend()
+}
+
+/**
+ * Courier oracle (admin/backend key) confirms delivery, moving the escrow
+ * Shipped → Delivered and starting the 72h auto-release clock.
+ * The signer must be the admin address registered via initialize().
+ */
+export async function markDeliveredOnChain(
+  adminAddress: string,
+  requestId:    string,
+): Promise<void> {
+  const client = buildClient(adminAddress)
+
+  const tx = await client.mark_delivered({
+    request_id: requestId,
+  })
+
+  await tx.signAndSend()
+}
+
+/**
+ * Permissionless auto-release: once 72h have passed since delivery and the
+ * titiper never confirmed, anyone (a keeper) can trigger payout to the runner.
+ * `callerAddress` just pays the transaction fee — funds only ever go to the
+ * pre-agreed runner.
+ */
+export async function claimAutoReleaseOnChain(
+  callerAddress: string,
+  requestId:     string,
+): Promise<void> {
+  const client = buildClient(callerAddress)
+
+  const tx = await client.claim_auto_release({
+    request_id: requestId,
+  })
+
+  await tx.signAndSend()
+}

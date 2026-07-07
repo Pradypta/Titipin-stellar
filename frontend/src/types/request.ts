@@ -30,6 +30,7 @@ export interface TitipRequest {
   requestStatus: TitipRequestStatus
   createdAt: string
   statusUpdatedAt: string | null  // updated whenever status changes — used for auto-deliver timer
+  trackingNumber: string | null   // courier tracking number, recorded when runner marks shipped
 }
 
 export interface CreateTitipRequestPayload {

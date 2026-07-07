@@ -71,7 +71,7 @@ export function TitiperOrdersPage() {
                     {req.variant && <p className="text-xs text-neutral-400">{req.variant} · qty {req.quantity}</p>}
                     {group && (
                       <Link to={`/groups/${group.groupId}`} className="text-xs font-semibold text-[#FF5C00] hover:underline">
-                        {group.title} →
+                        {group.username} →
                       </Link>
                     )}
                   </div>

@@ -6,7 +6,9 @@
       "Bash(npm install *)",
       "Bash(npx tsc *)",
       "Bash(curl *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(stellar contract *)",
+      "Bash(npm run *)"
     ]
   }
 }
