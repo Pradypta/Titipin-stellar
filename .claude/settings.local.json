@@ -10,7 +10,12 @@
       "Bash(stellar contract *)",
       "Bash(npm run *)",
       "Read(//tmp/escrow-bindings-check/src/**)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(cp \"/Users/jenjang/Desktop/Screenshot 2026-07-13 at 18.06.00.png\" runners-marketplace.png)",
+      "Bash(cp \"/Users/jenjang/Desktop/Screenshot 2026-07-13 at 18.07.33.png\" runner-submit-request.png)",
+      "Bash(cp \"/Users/jenjang/Desktop/Screenshot 2026-07-13 at 18.09.54.png\" runner-dashboard.png)",
+      "Bash(cp \"/Users/jenjang/Desktop/Screenshot 2026-07-13 at 18.11.17.png\" my-orders.png)",
+      "Bash(stellar --version)"
     ]
   }
 }
