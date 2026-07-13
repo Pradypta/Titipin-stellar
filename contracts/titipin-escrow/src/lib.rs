@@ -7,7 +7,7 @@ use soroban_sdk::{
 // Interface for the runner-reputation contract — used for cross-contract calls.
 #[contractclient(name = "ReputationClient")]
 pub trait ReputationInterface {
-    fn record_completed(env: Env, runner: Address);
+    fn record_completed(env: Env, runner: Address, rating: u32);
     fn record_refunded(env: Env, runner: Address);
 }
 
@@ -18,19 +18,24 @@ pub trait ReputationInterface {
 pub enum EscrowStatus {
     Registered, // runner approved, waiting for titiper payment
     Funded,     // titiper locked funds, runner sourcing
-    Completed,  // titiper confirmed receipt, runner paid out
+    Shipped,    // runner purchased + shipped, tracking number recorded
+    Delivered,  // courier oracle confirmed delivery — 72h auto-release clock started
+    Completed,  // titiper confirmed receipt (or auto-released), runner paid out
     Refunded,   // item unavailable, titiper refunded
 }
 
 #[contracttype]
 #[derive(Clone)]
 pub struct EscrowRequest {
-    pub runner:     Address,
-    pub titiper:    Address,
-    pub token:      Address, // XLM or USDC SAC address
-    pub amount:     i128,    // in stroops (1 XLM = 10_000_000)
-    pub status:     EscrowStatus,
-    pub funded_at:  u64,     // ledger timestamp when funded (0 if not yet funded)
+    pub runner:       Address,
+    pub titiper:      Address,
+    pub token:        Address, // XLM or USDC SAC address
+    pub amount:       i128,    // in stroops (1 XLM = 10_000_000)
+    pub status:       EscrowStatus,
+    pub funded_at:    u64,     // ledger timestamp when funded (0 if not yet funded)
+    pub shipped_at:   u64,     // ledger timestamp when runner marked shipped (0 if not yet)
+    pub delivered_at: u64,     // ledger timestamp courier confirmed delivery (0 if not yet)
+    pub tracking:     String,  // courier tracking number ("" until shipped)
 }
 
 #[contracttype]
@@ -42,6 +47,29 @@ pub enum DataKey {
 
 // Titiper can reclaim funds if runner ghosts for 30 days (~2,592,000 seconds)
 const REFUND_TIMEOUT_SECS: u64 = 30 * 24 * 60 * 60;
+
+// Runner is auto-paid if the titiper doesn't confirm within 72h of delivery.
+const AUTO_RELEASE_TIMEOUT_SECS: u64 = 72 * 60 * 60;
+
+// ── Internal helpers ────────────────────────────────────────────────────────
+
+/// Transfers the escrowed amount to the runner and records the completion in
+/// the reputation contract (if one is wired up). Caller must set status.
+/// `rating` is the titiper's 1..=5 star score, or 0 when no rating is given
+/// (e.g. permissionless auto-release). It is forwarded to the reputation
+/// contract, which ignores anything outside 1..=5.
+fn release_to_runner(env: &Env, req: &EscrowRequest, rating: u32) {
+    token::Client::new(env, &req.token)
+        .transfer(&env.current_contract_address(), &req.runner, &req.amount);
+
+    if let Some(rep_id) = env
+        .storage()
+        .instance()
+        .get::<DataKey, Address>(&DataKey::ReputationContract)
+    {
+        ReputationClient::new(env, &rep_id).record_completed(&req.runner, &rating);
+    }
+}
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
@@ -108,8 +136,11 @@ impl TitipinEscrow {
                 titiper,
                 token,
                 amount,
-                status:    EscrowStatus::Registered,
-                funded_at: 0,
+                status:       EscrowStatus::Registered,
+                funded_at:    0,
+                shipped_at:   0,
+                delivered_at: 0,
+                tracking:     String::from_str(&env, ""),
             },
         );
         env.storage().persistent().extend_ttl(&key, 518_400, 518_400);
@@ -144,9 +175,76 @@ impl TitipinEscrow {
         env.storage().persistent().extend_ttl(&key, 518_400, 518_400);
     }
 
-    /// Titiper confirms receipt — releases funds to runner.
-    pub fn confirm_receipt(env: Env, request_id: String, titiper: Address) -> String {
+    /// Runner marks the item purchased + shipped and records the courier
+    /// tracking number. Moves the escrow from Funded → Shipped.
+    pub fn mark_shipped(env: Env, request_id: String, runner: Address, tracking: String) {
+        runner.require_auth();
+
+        let key = DataKey::Request(request_id);
+        let mut req: EscrowRequest = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic!("request not found"));
+
+        if req.runner != runner {
+            panic!("unauthorized: caller is not the runner for this request");
+        }
+        if req.status != EscrowStatus::Funded {
+            panic!("request is not in Funded state");
+        }
+
+        req.status     = EscrowStatus::Shipped;
+        req.tracking   = tracking;
+        req.shipped_at = env.ledger().timestamp();
+
+        env.storage().persistent().set(&key, &req);
+        env.storage().persistent().extend_ttl(&key, 518_400, 518_400);
+    }
+
+    /// Courier oracle (the admin/backend) confirms the parcel was delivered.
+    /// Moves Shipped → Delivered and starts the 72h auto-release clock.
+    pub fn mark_delivered(env: Env, request_id: String) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .unwrap_or_else(|| panic!("not initialized"));
+        admin.require_auth();
+
+        let key = DataKey::Request(request_id);
+        let mut req: EscrowRequest = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic!("request not found"));
+
+        if req.status != EscrowStatus::Shipped {
+            panic!("request is not in Shipped state");
+        }
+
+        req.status       = EscrowStatus::Delivered;
+        req.delivered_at = env.ledger().timestamp();
+
+        env.storage().persistent().set(&key, &req);
+        env.storage().persistent().extend_ttl(&key, 518_400, 518_400);
+    }
+
+    /// Titiper confirms receipt — releases funds to runner and rates them.
+    /// Allowed any time after funding (Funded, Shipped, or Delivered).
+    /// `rating` is a 1..=5 star score for the runner; pass 0 to skip rating.
+    /// Rating never blocks the payout — it is recorded alongside it.
+    pub fn confirm_receipt(
+        env: Env,
+        request_id: String,
+        titiper: Address,
+        rating: u32,
+    ) -> String {
         titiper.require_auth();
+
+        if rating > 5 {
+            panic!("rating must be between 0 and 5");
+        }
 
         let key = DataKey::Request(request_id);
         let mut req: EscrowRequest = env
@@ -158,26 +256,47 @@ impl TitipinEscrow {
         if req.titiper != titiper {
             panic!("unauthorized: caller is not the titiper for this request");
         }
-        if req.status != EscrowStatus::Funded {
-            panic!("request is not in Funded state");
+        match req.status {
+            EscrowStatus::Funded | EscrowStatus::Shipped | EscrowStatus::Delivered => {}
+            _ => panic!("request is not in a releasable state"),
         }
 
-        token::Client::new(&env, &req.token)
-            .transfer(&env.current_contract_address(), &req.runner, &req.amount);
+        release_to_runner(&env, &req, rating);
 
         req.status = EscrowStatus::Completed;
         env.storage().persistent().set(&key, &req);
 
-        // Cross-contract call: update runner's reputation score
-        if let Some(rep_id) = env
+        String::from_str(&env, "Payment released to runner")
+    }
+
+    /// Auto-release protection for the runner: once 72h have passed since the
+    /// courier marked the parcel delivered and the titiper still hasn't
+    /// confirmed, anyone (a keeper/cron) can trigger payout to the runner.
+    /// Permissionless — funds can only ever go to the pre-agreed runner.
+    pub fn claim_auto_release(env: Env, request_id: String) -> String {
+        let key = DataKey::Request(request_id);
+        let mut req: EscrowRequest = env
             .storage()
-            .instance()
-            .get::<DataKey, Address>(&DataKey::ReputationContract)
-        {
-            ReputationClient::new(&env, &rep_id).record_completed(&req.runner);
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic!("request not found"));
+
+        if req.status != EscrowStatus::Delivered {
+            panic!("request is not in Delivered state");
         }
 
-        String::from_str(&env, "Payment released to runner")
+        let now = env.ledger().timestamp();
+        if now < req.delivered_at + AUTO_RELEASE_TIMEOUT_SECS {
+            panic!("auto-release window has not elapsed yet (72h required)");
+        }
+
+        // No titiper present to rate on a permissionless auto-release.
+        release_to_runner(&env, &req, 0);
+
+        req.status = EscrowStatus::Completed;
+        env.storage().persistent().set(&key, &req);
+
+        String::from_str(&env, "Funds auto-released to runner")
     }
 
     /// Runner marks item unavailable — refunds titiper.
@@ -234,8 +353,9 @@ impl TitipinEscrow {
         if req.titiper != titiper {
             panic!("unauthorized: caller is not the titiper for this request");
         }
-        if req.status != EscrowStatus::Funded {
-            panic!("funds are not currently in escrow");
+        match req.status {
+            EscrowStatus::Funded | EscrowStatus::Shipped => {}
+            _ => panic!("funds are not currently in escrow"),
         }
 
         let now = env.ledger().timestamp();

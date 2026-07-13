@@ -8,7 +8,9 @@
       "Bash(curl *)",
       "Bash(node *)",
       "Bash(stellar contract *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Read(//tmp/escrow-bindings-check/src/**)",
+      "Read(//tmp/**)"
     ]
   }
 }

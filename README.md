@@ -96,7 +96,7 @@ Neither party can move the funds unilaterally. All rules are enforced by the Sor
 | Contract | ID |
 |---|---|
 | `titipin-escrow` | `CAB5LP5SKD22NA6SECD6EV3AJ62BWYV5MNRRELCHVKF5DX6IUQADSXBB` |
-| `runner-reputation` | `CBQ5YNUFSK5WDJMS6XGX22RWW54IJ3CQFXBWSDQBN4DTPHCFTLXPBLPG` |
+| `runner-reputation` | `CBYNRRNW7RE5WJXJSNGPY45SAWTXU6GWGQ42PJSV4VT35MK6PIHXNJTK` |
 
 The contract is written in Rust using the Soroban SDK and stores one `EscrowRequest` record per titip request on the Stellar ledger.
 
@@ -125,7 +125,7 @@ pub enum EscrowStatus {
 |---|---|---|
 | `create_request(id, runner, titiper, token, amount)` | Runner | Registers escrow terms on-chain. Locks in the amount and both parties' addresses. Must be called before the titiper can fund. |
 | `fund_request(id, titiper)` | Titiper | Transfers XLM from the titiper's wallet into the contract. Status moves to `Funded`. |
-| `confirm_receipt(id, titiper)` | Titiper | Releases the locked XLM from the contract to the runner's wallet. Status moves to `Completed`. |
+| `confirm_receipt(id, titiper, rating)` | Titiper | Releases the locked XLM to the runner's wallet **and** records a 1–5★ rating for the runner in one transaction (pass `0` to skip). Rating never blocks the payout. Status moves to `Completed`. |
 | `refund_request(id, runner)` | Runner | Returns the locked XLM to the titiper's wallet. Called when the item is unavailable. Status moves to `Refunded`. |
 | `get_request(id)` | Anyone | Read-only. Returns the current on-chain state of a request. |
 

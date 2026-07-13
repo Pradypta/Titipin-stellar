@@ -12,6 +12,7 @@
 
 import { signTransaction as freighterSign } from '@stellar/freighter-api'
 import { Client } from '../bindings/titipin-escrow'
+import { Client as ReputationClientCtor } from '../bindings/runner-reputation'
 import type { ClientOptions } from '@stellar/stellar-sdk/contract'
 
 // Native XLM token SAC address on testnet
@@ -20,6 +21,7 @@ export const NATIVE_TOKEN = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HH
 const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015'
 const RPC_URL            = 'https://soroban-testnet.stellar.org'
 const CONTRACT_ID        = 'CAB5LP5SKD22NA6SECD6EV3AJ62BWYV5MNRRELCHVKF5DX6IUQADSXBB'
+const REPUTATION_ID      = 'CBYNRRNW7RE5WJXJSNGPY45SAWTXU6GWGQ42PJSV4VT35MK6PIHXNJTK'
 const STROOPS_PER_XLM    = 10_000_000
 
 function buildClient(walletAddress: string): Client {
@@ -84,21 +86,67 @@ export async function fundEscrow(
 }
 
 /**
- * Titiper confirms delivery → contract automatically releases XLM to runner.
+ * Titiper confirms delivery → contract releases XLM to runner AND records the
+ * runner's star rating in one transaction. `rating` is 1–5, or 0 to skip.
+ * The rating never blocks the payout — it's recorded alongside it.
  * Freighter opens for the user to approve.
  */
 export async function confirmReceiptOnChain(
   titiperAddress: string,
   requestId:      string,
+  rating:         number = 0,
 ): Promise<void> {
   const client = buildClient(titiperAddress)
 
   const tx = await client.confirm_receipt({
     request_id: requestId,
     titiper:    titiperAddress,
+    rating,
   })
 
   await tx.signAndSend()
+}
+
+/** A runner's on-chain reputation, derived from the reputation contract. */
+export interface RunnerReputation {
+  completed:     number // escrows paid out
+  refunded:      number // escrows refunded (item unavailable)
+  ratingCount:   number // number of star ratings received
+  averageRating: number // mean stars (0 if never rated), 1 decimal
+  reliability:   number // completed / (completed + refunded), 0–100 (100 if no history)
+}
+
+/**
+ * Read a runner's reputation from the reputation contract. Read-only — this is
+ * a simulation, so no wallet signature or fee is required. `viewerAddress` just
+ * supplies a source account for the simulation.
+ */
+export async function getRunnerStats(
+  runnerAddress: string,
+  viewerAddress: string,
+): Promise<RunnerReputation> {
+  const client = new ReputationClientCtor({
+    contractId:        REPUTATION_ID,
+    networkPassphrase: NETWORK_PASSPHRASE,
+    rpcUrl:            RPC_URL,
+    publicKey:         viewerAddress,
+  } as ClientOptions)
+
+  const { result } = await client.get_stats({ runner: runnerAddress })
+
+  const completed   = Number(result.completed)
+  const refunded    = Number(result.refunded)
+  const ratingCount = Number(result.rating_count)
+  const ratingSum   = Number(result.rating_sum)
+  const total       = completed + refunded
+
+  return {
+    completed,
+    refunded,
+    ratingCount,
+    averageRating: ratingCount > 0 ? ratingSum / ratingCount : 0,
+    reliability:   total > 0 ? Math.round((completed / total) * 100) : 100,
+  }
 }
 
 /**

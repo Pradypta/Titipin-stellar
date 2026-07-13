@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { TitipGroup } from '../../types/group'
 import { whatsappUrl } from '../../lib/whatsapp'
+import { RunnerReputationBadge } from '../../components/RunnerReputationBadge'
 
 // WhatsApp glyph
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -35,7 +36,12 @@ export function GroupCard({ group, publicKey }: { group: TitipGroup; publicKey?:
 
       {/* Runner */}
       <h3 className="mb-1 text-lg font-black tracking-tight text-neutral-900 leading-snug">{group.username}</h3>
-      <p className="mb-4 text-sm font-semibold text-[#FF5C00]">📍 {group.location}</p>
+      <p className="mb-2 text-sm font-semibold text-[#FF5C00]">📍 {group.location}</p>
+      {group.runnerAddress && (
+        <div className="mb-4">
+          <RunnerReputationBadge runnerAddress={group.runnerAddress} viewerAddress={publicKey} />
+        </div>
+      )}
       <p className="mb-6 flex-1 text-sm text-neutral-500 leading-relaxed line-clamp-3">{group.background}</p>
 
       <div className="flex gap-2">

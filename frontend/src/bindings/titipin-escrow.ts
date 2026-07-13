@@ -32,7 +32,12 @@ if (typeof window !== "undefined") {
 }
 
 
-
+export const networks = {
+  testnet: {
+    networkPassphrase: "Test SDF Network ; September 2015",
+    contractId: "CAB5LP5SKD22NA6SECD6EV3AJ62BWYV5MNRRELCHVKF5DX6IUQADSXBB",
+  }
+} as const
 
 export type DataKey = {tag: "Request", values: readonly [string]} | {tag: "Admin", values: void} | {tag: "ReputationContract", values: void};
 
@@ -107,10 +112,12 @@ export interface Client {
 
   /**
    * Construct and simulate a confirm_receipt transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Titiper confirms receipt — releases funds to runner.
+   * Titiper confirms receipt — releases funds to runner and rates them.
    * Allowed any time after funding (Funded, Shipped, or Delivered).
+   * `rating` is a 1..=5 star score for the runner; pass 0 to skip rating.
+   * Rating never blocks the payout — it is recorded alongside it.
    */
-  confirm_receipt: ({request_id, titiper}: {request_id: string, titiper: string}, options?: MethodOptions) => Promise<AssembledTransaction<string>>
+  confirm_receipt: ({request_id, titiper, rating}: {request_id: string, titiper: string, rating: u32}, options?: MethodOptions) => Promise<AssembledTransaction<string>>
 
   /**
    * Construct and simulate a claim_auto_release transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -163,7 +170,7 @@ export class Client extends ContractClient {
         "AAAAAAAAAEZSdW5uZXIgcmVnaXN0ZXJzIGFuIGVzY3JvdyByZXF1ZXN0IGFmdGVyIGFwcHJvdmluZyB0aGUgdGl0aXBlcidzIGl0ZW0uAAAAAAAOY3JlYXRlX3JlcXVlc3QAAAAAAAUAAAAAAAAACnJlcXVlc3RfaWQAAAAAABAAAAAAAAAABnJ1bm5lcgAAAAAAEwAAAAAAAAAHdGl0aXBlcgAAAAATAAAAAAAAAAV0b2tlbgAAAAAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAA=",
         "AAAAAAAAAIhDb3VyaWVyIG9yYWNsZSAodGhlIGFkbWluL2JhY2tlbmQpIGNvbmZpcm1zIHRoZSBwYXJjZWwgd2FzIGRlbGl2ZXJlZC4KTW92ZXMgU2hpcHBlZCDihpIgRGVsaXZlcmVkIGFuZCBzdGFydHMgdGhlIDcyaCBhdXRvLXJlbGVhc2UgY2xvY2suAAAADm1hcmtfZGVsaXZlcmVkAAAAAAABAAAAAAAAAApyZXF1ZXN0X2lkAAAAAAAQAAAAAA==",
         "AAAAAAAAADJSdW5uZXIgbWFya3MgaXRlbSB1bmF2YWlsYWJsZSDigJQgcmVmdW5kcyB0aXRpcGVyLgAAAAAADnJlZnVuZF9yZXF1ZXN0AAAAAAACAAAAAAAAAApyZXF1ZXN0X2lkAAAAAAAQAAAAAAAAAAZydW5uZXIAAAAAABMAAAABAAAAEA==",
-        "AAAAAAAAAHZUaXRpcGVyIGNvbmZpcm1zIHJlY2VpcHQg4oCUIHJlbGVhc2VzIGZ1bmRzIHRvIHJ1bm5lci4KQWxsb3dlZCBhbnkgdGltZSBhZnRlciBmdW5kaW5nIChGdW5kZWQsIFNoaXBwZWQsIG9yIERlbGl2ZXJlZCkuAAAAAAAPY29uZmlybV9yZWNlaXB0AAAAAAIAAAAAAAAACnJlcXVlc3RfaWQAAAAAABAAAAAAAAAAB3RpdGlwZXIAAAAAEwAAAAEAAAAQ",
+        "AAAAAAAAAQtUaXRpcGVyIGNvbmZpcm1zIHJlY2VpcHQg4oCUIHJlbGVhc2VzIGZ1bmRzIHRvIHJ1bm5lciBhbmQgcmF0ZXMgdGhlbS4KQWxsb3dlZCBhbnkgdGltZSBhZnRlciBmdW5kaW5nIChGdW5kZWQsIFNoaXBwZWQsIG9yIERlbGl2ZXJlZCkuCmByYXRpbmdgIGlzIGEgMS4uPTUgc3RhciBzY29yZSBmb3IgdGhlIHJ1bm5lcjsgcGFzcyAwIHRvIHNraXAgcmF0aW5nLgpSYXRpbmcgbmV2ZXIgYmxvY2tzIHRoZSBwYXlvdXQg4oCUIGl0IGlzIHJlY29yZGVkIGFsb25nc2lkZSBpdC4AAAAAD2NvbmZpcm1fcmVjZWlwdAAAAAADAAAAAAAAAApyZXF1ZXN0X2lkAAAAAAAQAAAAAAAAAAd0aXRpcGVyAAAAABMAAAAAAAAABnJhdGluZwAAAAAABAAAAAEAAAAQ",
         "AAAAAAAAAQ9BdXRvLXJlbGVhc2UgcHJvdGVjdGlvbiBmb3IgdGhlIHJ1bm5lcjogb25jZSA3MmggaGF2ZSBwYXNzZWQgc2luY2UgdGhlCmNvdXJpZXIgbWFya2VkIHRoZSBwYXJjZWwgZGVsaXZlcmVkIGFuZCB0aGUgdGl0aXBlciBzdGlsbCBoYXNuJ3QKY29uZmlybWVkLCBhbnlvbmUgKGEga2VlcGVyL2Nyb24pIGNhbiB0cmlnZ2VyIHBheW91dCB0byB0aGUgcnVubmVyLgpQZXJtaXNzaW9ubGVzcyDigJQgZnVuZHMgY2FuIG9ubHkgZXZlciBnbyB0byB0aGUgcHJlLWFncmVlZCBydW5uZXIuAAAAABJjbGFpbV9hdXRvX3JlbGVhc2UAAAAAAAEAAAAAAAAACnJlcXVlc3RfaWQAAAAAABAAAAABAAAAEA==",
         "AAAAAAAAAIdFc2NhcGUgaGF0Y2g6IHRpdGlwZXIgcmVjbGFpbXMgZnVuZHMgaWYgcnVubmVyIGdob3N0cyBmb3IgMzAgZGF5cy4KUHJvdGVjdHMgdGl0aXBlcnMgZnJvbSBydW5uZXJzIHdobyBkaXNhcHBlYXIgYWZ0ZXIgZXNjcm93IGlzIGZ1bmRlZC4AAAAAFGNsYWltX3RpbWVvdXRfcmVmdW5kAAAAAgAAAAAAAAAKcmVxdWVzdF9pZAAAAAAAEAAAAAAAAAAHdGl0aXBlcgAAAAATAAAAAQAAABA=",
         "AAAAAAAAAElBZG1pbiByZWdpc3RlcnMgdGhlIHJlcHV0YXRpb24gY29udHJhY3QgYWRkcmVzcyBmb3IgY3Jvc3MtY29udHJhY3QgY2FsbHMuAAAAAAAAF3NldF9yZXB1dGF0aW9uX2NvbnRyYWN0AAAAAAEAAAAAAAAADXJlcHV0YXRpb25faWQAAAAAAAATAAAAAA==" ]),

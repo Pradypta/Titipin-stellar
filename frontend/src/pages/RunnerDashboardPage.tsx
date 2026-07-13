@@ -4,6 +4,7 @@ import { useRunnerGroups } from '../hooks/useTitipGroups'
 import { useRunnerRequests } from '../hooks/useTitipRequests'
 import { Navbar } from '../components/Navbar'
 import { WalletConnectButton } from '../components/WalletConnectButton'
+import { RunnerReputationBadge } from '../components/RunnerReputationBadge'
 import { RequestCard } from '../features/requests/RequestCard'
 import type { TitipGroup } from '../types/group'
 import type { TitipRequest } from '../types/request'
@@ -134,6 +135,11 @@ export function RunnerDashboardPage() {
           <div>
             <p className="mb-1 text-sm font-semibold uppercase tracking-widest text-[#FF5C00]">Runner</p>
             <h1 className="text-4xl font-black tracking-tight text-neutral-900">Dashboard</h1>
+            {publicKey && (
+              <div className="mt-3">
+                <RunnerReputationBadge runnerAddress={publicKey} viewerAddress={publicKey} />
+              </div>
+            )}
           </div>
           <Link
             to="/runner/groups/new"
