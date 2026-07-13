@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- App icon: dark rounded square + Ti mark. Works on any slide background. -->
+  <rect width="256" height="256" rx="56" fill="#0A0A0A"/>
+  <g transform="translate(12,0)">
+    <!-- T: bar + stem (white) -->
+    <rect x="32" y="64" width="104" height="28" rx="10" fill="#FFFFFF"/>
+    <rect x="73.6" y="64" width="28" height="136" rx="10" fill="#FFFFFF"/>
+    <!-- i: dot (orange) + stem (white) -->
+    <circle cx="176" cy="76" r="17.6" fill="#FF5C00"/>
+    <rect x="164" y="112" width="24" height="88" rx="10" fill="#FFFFFF"/>
+  </g>
+</svg>

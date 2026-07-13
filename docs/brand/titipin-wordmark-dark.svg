@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 170" width="620" height="170">
+  <!-- Wordmark for LIGHT slides (near-black text, orange dot). Font: Inter ExtraBold. -->
+  <text x="20" y="122" font-family="Inter, system-ui, -apple-system, sans-serif"
+        font-weight="800" font-size="120" letter-spacing="-5" fill="#0A0A0A">Titipin<tspan fill="#FF5C00">.</tspan></text>
+</svg>

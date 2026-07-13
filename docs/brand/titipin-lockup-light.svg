@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 200" width="760" height="200">
+  <!-- Horizontal lockup (icon + wordmark) for DARK slides. Font: Inter ExtraBold. -->
+  <g transform="translate(20,20) scale(0.625)">
+    <rect width="256" height="256" rx="56" fill="#0A0A0A"/>
+    <g transform="translate(12,0)">
+      <rect x="32" y="64" width="104" height="28" rx="10" fill="#FFFFFF"/>
+      <rect x="73.6" y="64" width="28" height="136" rx="10" fill="#FFFFFF"/>
+      <circle cx="176" cy="76" r="17.6" fill="#FF5C00"/>
+      <rect x="164" y="112" width="24" height="88" rx="10" fill="#FFFFFF"/>
+    </g>
+  </g>
+  <text x="210" y="132" font-family="Inter, system-ui, -apple-system, sans-serif"
+        font-weight="800" font-size="104" letter-spacing="-4" fill="#FFFFFF">Titipin<tspan fill="#FF5C00">.</tspan></text>
+</svg>

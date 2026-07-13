@@ -4,6 +4,8 @@
 
 **Titipin** is a trustless escrow payment platform for jastip transactions on the Stellar blockchain.
 
+**🔗 Live demo:** [titipin-stellar.vercel.app](https://titipin-stellar.vercel.app) · runs on **Stellar Testnet** — connect [Freighter](https://www.freighter.app) (set to Testnet) and fund via [Friendbot](https://laboratory.stellar.org/account-creator).
+
 ---
 
 ## What is Jastip?
@@ -228,8 +230,8 @@ The frontend reads this via a signature-free simulation and renders a badge like
 ### 1 — Clone and install
 
 ```bash
-git clone https://github.com/Pradypta/stellar-project-01
-cd stellar-project-01
+git clone https://github.com/Pradypta/Titipin-stellar
+cd Titipin-stellar
 
 # Frontend dependencies
 cd frontend && npm install && cd ..
