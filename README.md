@@ -6,6 +6,8 @@
 
 **🔗 Live demo:** [titipin-stellar.vercel.app](https://titipin-stellar.vercel.app) · runs on **Stellar Testnet** — connect [Freighter](https://www.freighter.app) (set to Testnet) and fund via [Friendbot](https://laboratory.stellar.org/account-creator).
 
+**🎥 Demo video:** [youtu.be/fHv19XVCz88](https://youtu.be/fHv19XVCz88) · **📊 Pitch deck:** [canva.link/8u0apeb837m0i5l](https://canva.link/8u0apeb837m0i5l)
+
 ---
 
 ## What is Jastip?
